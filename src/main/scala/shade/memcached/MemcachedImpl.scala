@@ -1,15 +1,14 @@
 package shade.memcached
 
 import internals._
-import concurrent.{Future, ExecutionContext}
 import net.spy.memcached.{FailureMode => SpyFailureMode, _}
 import net.spy.memcached.ConnectionFactoryBuilder.{Protocol => SpyProtocol}
 import net.spy.memcached.auth.{PlainCallbackHandler, AuthDescriptor}
-import concurrent.duration._
 import java.util.concurrent.TimeUnit
 import akka.actor.Scheduler
 import shade.{TransformOverflowException, UnhandledStatusException, TimeoutException, Memcached}
-
+import akka.dispatch._
+import akka.util.{Duration, FiniteDuration}
 
 /**
  * Memcached client implementation based on SpyMemcached.
@@ -41,7 +40,7 @@ class MemcachedImpl(config: Configuration, scheduler: Scheduler, ec: ExecutionCo
           throwExceptionOn(failure)
       }
     else
-      Future.successful(false)
+      Promise.successful(false)
 
   /**
    * Sets a (key, value) in the cache store.
@@ -57,7 +56,7 @@ class MemcachedImpl(config: Configuration, scheduler: Scheduler, ec: ExecutionCo
           throwExceptionOn(failure)
       }
     else
-      Future.successful(())
+      Promise.successful(())
   }
 
   /**
@@ -107,7 +106,7 @@ class MemcachedImpl(config: Configuration, scheduler: Scheduler, ec: ExecutionCo
       case Some(expectingValue) =>
         instance.realAsyncGets(withPrefix(key), config.operationTimeout) flatMap {
           case SuccessfulResult(givenKey, None) =>
-            Future.successful(false)
+            Promise.successful(false)
 
           case SuccessfulResult(givenKey, Some((currentData, casID))) =>
             if (codec.deserialize(currentData) == expectingValue)
@@ -118,7 +117,7 @@ class MemcachedImpl(config: Configuration, scheduler: Scheduler, ec: ExecutionCo
                   throwExceptionOn(failure)
               }
             else
-              Future.successful(false)
+              Promise.successful(false)
           case failure: FailedResult =>
             throwExceptionOn(failure)
         }
@@ -148,7 +147,7 @@ class MemcachedImpl(config: Configuration, scheduler: Scheduler, ec: ExecutionCo
           val result = cb(None)
           asyncAdd(key, result, exp) flatMap {
             case true =>
-              Future.successful(f(None, result))
+              Promise.successful(f(None, result))
             case false =>
               loop(retry + 1)
           }
@@ -158,7 +157,7 @@ class MemcachedImpl(config: Configuration, scheduler: Scheduler, ec: ExecutionCo
 
           instance.realAsyncCAS(keyWithPrefix, casID, 0, codec.serialize(result), exp, config.operationTimeout) flatMap {
             case SuccessfulResult(_, true) =>
-              Future.successful(f(currentOpt, result))
+              Promise.successful(f(currentOpt, result))
             case SuccessfulResult(_, false) =>
               loop(retry + 1)
             case failure: FailedResult =>

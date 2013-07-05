@@ -1,8 +1,8 @@
 package shade.memcached
 
 import java.io._
-import scala.util.control.NonFatal
 import shade.CacheCodec
+import akka.util.NonFatal
 
 object defaultCodecs {
   implicit object IntBinaryCodec extends CacheCodec[Int, Array[Byte]] {

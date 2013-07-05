@@ -1,16 +1,15 @@
 package shade.memcached.internals
 
-import util.{Success, Try}
-import concurrent.{Promise, Future}
 import concurrent.atomic.Atomic
+import akka.dispatch._
 
 sealed trait PartialResult[+T]
-case class FinishedResult[T](result: Try[Result[T]]) extends PartialResult[T]
+case class FinishedResult[T](result: Either[Throwable, Result[T]]) extends PartialResult[T]
 case class FutureResult[T](result: Future[Result[T]]) extends PartialResult[T]
 case object NoResultAvailable extends PartialResult[Nothing]
 
 final class MutablePartialResult[T] {
-  def tryComplete(result: Try[Result[T]]) =
+  def tryComplete(result: Either[Throwable, Result[T]]) =
     _result.compareAndSet(NoResultAvailable, FinishedResult(result))
 
   def tryCompleteWith(result: Future[Result[T]]) =
@@ -21,9 +20,9 @@ final class MutablePartialResult[T] {
       case FinishedResult(result) =>
         promise.tryComplete(result)
       case FutureResult(result) =>
-        promise.tryCompleteWith(result)
+        result.onComplete { case r => promise.tryComplete(r) }
       case NoResultAvailable =>
-        promise.tryComplete(Success(FailedResult(key, IllegalCompleteStatus)))
+        promise.tryComplete(Right(FailedResult(key, IllegalCompleteStatus)))
     }
   }
 

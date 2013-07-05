@@ -1,6 +1,7 @@
 package shade.memcached
 
-import concurrent.duration._
+import akka.util.duration._
+import akka.util.FiniteDuration
 
 case class Configuration(
   /**

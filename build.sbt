@@ -4,13 +4,14 @@ organization in ThisBuild := "com.bionicspirit"
 
 version in ThisBuild := "1.2.0"
 
-scalaVersion in ThisBuild := "2.10.2"
+scalaVersion in ThisBuild := "2.9.2"
+
+crossScalaVersions in ThisBuild := Seq("2.9.2", "2.9.3")
 
 compileOrder in ThisBuild := CompileOrder.JavaThenScala
 
 scalacOptions in ThisBuild ++= Seq(
-  "-unchecked", "-deprecation", "-feature",
-  "-target:jvm-1.6"
+  "-unchecked", "-deprecation"
 )
 
 licenses in ThisBuild := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
@@ -27,7 +28,7 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   "spy" % "spymemcached" % "2.8.4",
-  "com.typesafe.akka" %% "akka-actor" % "2.1.4",
+  "com.typesafe.akka" % "akka-actor" % "2.0.5",
   "com.bionicspirit" %% "scala-atomic" % "0.1",
   "org.slf4j" % "slf4j-api" % "1.7.4",
   "ch.qos.logback" % "logback-classic" % "1.0.6" % "test",

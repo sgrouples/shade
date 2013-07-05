@@ -1,6 +1,7 @@
 package shade.inmemory
 
-import concurrent.duration._
+import akka.util.{FiniteDuration, Duration}
+import akka.util.duration._
 
 case class CacheValue(
   value: Any,

@@ -2,11 +2,14 @@ package shade.tests
 
 import shade.memcached.{FailureMode, Protocol, Configuration}
 import akka.actor.ActorSystem
-import scala.concurrent.ExecutionContext.Implicits._
-import scala.concurrent.duration._
 import shade.Memcached
+import akka.util.FiniteDuration
+import akka.util.duration._
 
 trait MemcachedTestHelpers {
+  val system = ActorSystem("default")
+  implicit val ec = system.dispatcher
+
   val defaultConfig = Configuration(
     addresses = "127.0.0.1:11211",
     authentication = None,
@@ -24,7 +27,7 @@ trait MemcachedTestHelpers {
       operationTimeout = opTimeout.getOrElse(defaultConfig.operationTimeout)
     )
 
-    Memcached(config, system.scheduler, global)
+    Memcached(config, system.scheduler, ec)
   }
 
   def withCache[T](prefix: String, maxRetries: Option[Int] = None, failureMode: Option[FailureMode.Value] = None)(cb: Memcached => T): T = {

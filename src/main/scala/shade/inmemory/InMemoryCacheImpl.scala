@@ -1,16 +1,15 @@
 package shade.inmemory
 
-import concurrent.duration.Duration
-import concurrent.Future
 import annotation.tailrec
 import shade.{CacheException, InMemoryCache}
 import scala.concurrent.atomic.Atomic
-
+import akka.dispatch.{ExecutionContext, Promise, Future}
+import akka.util.Duration
 
 /**
  * Simple and dumb implementation of an in-memory cache.
  */
-class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
+class InMemoryCacheImpl(maxElems: Int = 100)(implicit ec: ExecutionContext) extends InMemoryCache {
   override def awaitGet[T](key: String)(implicit codec: Codec[T]): Option[T] =
     cacheRef.get.get(key).flatMap {
       case value if !isExpired(value) =>
@@ -20,8 +19,7 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
     }
 
   def asyncGet[T](key: String)(implicit codec: Codec[T]): Future[Option[T]] =
-    Future.successful(awaitGet(key))
-
+    Promise.successful(awaitGet(key))
 
   override def awaitAdd[T](key: String, value: T, exp: Duration)(implicit codec: Codec[T]): Boolean =
     if (value == null)
@@ -41,7 +39,7 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
       }
 
   def asyncAdd[T](key: String, value: T, exp: Duration)(implicit codec: Codec[T]): Future[Boolean] =
-    Future.successful(awaitAdd(key, value, exp))
+    Promise.successful(awaitAdd(key, value, exp))
 
   override def awaitSet[T](key: String, value: T, exp: Duration)(implicit codec: Codec[T]) {
     if (value != null)
@@ -61,7 +59,7 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
 
   def asyncSet[T](key: String, value: T, exp: Duration)(implicit codec: Codec[T]): Future[Unit] = {
     awaitSet(key, value, exp)
-    Future.successful(())
+    Promise.successful(())
   }
 
 
@@ -72,9 +70,8 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
     oldMap.contains(key) && !isExpired(oldMap(key))
   }
 
-  def asyncDelete(key: String): Future[Boolean] = {
-    Future.successful(awaitDelete(key))
-  }
+  def asyncDelete(key: String): Future[Boolean] =
+    Promise.successful(awaitDelete(key))
 
   private[this] def compareAndSet[T](key: String, expecting: Option[T], newValue: T, exp: Duration)(implicit codec: Codec[T]): Boolean = {
     val currentTS = System.currentTimeMillis()
@@ -100,7 +97,7 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
   }
 
   def asyncCAS[T](key: String, expecting: Option[T], newValue: T, exp: Duration)(implicit codec: Codec[T]): Future[Boolean] =
-    Future.successful(compareAndSet(key, expecting, newValue, exp))
+    Promise.successful(compareAndSet(key, expecting, newValue, exp))
 
   def transformAndGet[T](key: String, exp: Duration)(cb: (Option[T]) => T)(implicit codec: Codec[T]): Future[T] = {
     @tailrec
@@ -114,7 +111,7 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
         update
     }
 
-    Future.successful(loop)
+    Promise.successful(loop)
   }
 
   def getAndTransform[T](key: String, exp: Duration)(cb: (Option[T]) => T)(implicit codec: Codec[T]): Future[Option[T]] = {
@@ -129,7 +126,7 @@ class InMemoryCacheImpl(maxElems: Int = 100) extends InMemoryCache {
         current
     }
 
-    Future.successful(loop)
+    Promise.successful(loop)
   }
 
   def shutdown() {

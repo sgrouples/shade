@@ -1,9 +1,9 @@
 package shade
 
-import concurrent._
-import duration._
 import shade.memcached.Configuration
 import akka.actor.Scheduler
+import akka.dispatch._
+import akka.util.Duration
 
 trait Cache[SerializationFormat] {
   type Codec[T] = CacheCodec[T, SerializationFormat]
@@ -108,7 +108,7 @@ trait Cache[SerializationFormat] {
 
 trait InMemoryCache extends Cache[Any]
 object InMemoryCache {
-  def apply(maxElems: Int): InMemoryCache =
+  def apply(maxElems: Int)(implicit ec: ExecutionContext): InMemoryCache =
     new inmemory.InMemoryCacheImpl(maxElems)
 }
 

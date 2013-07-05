@@ -3,16 +3,19 @@ package shade.tests
 import org.scalatest.FunSuite
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
 import shade.inmemory.defaultCodecs._
-import scala.concurrent.Await
 import shade.InMemoryCache
+import akka.util.duration._
+import akka.dispatch._
+import akka.util.Duration
+import akka.actor.ActorSystem
 
 
 @RunWith(classOf[JUnitRunner])
 class InMemoryCacheSuite extends FunSuite {
   implicit val timeout = 200.millis
+  val system = ActorSystem("default")
+  implicit val ec = system.dispatcher
 
   test("add") {
     withCache("add") { cache =>
@@ -175,7 +178,7 @@ class InMemoryCacheSuite extends FunSuite {
           case Some(nr) => nr + 1
         }
 
-      val seq = concurrent.Future.sequence((0 until 500).map(nr => incrementValue))
+      val seq = Future.sequence((0 until 500).map(nr => incrementValue))
       Await.result(seq, 20.seconds)
 
       assert(cache.awaitGet[Int]("some-key") === Some(500))
@@ -193,7 +196,7 @@ class InMemoryCacheSuite extends FunSuite {
           case Some(nr) => nr + 1
         }
 
-      val seq = concurrent.Future.sequence((0 until 500).map(nr => incrementValue))
+      val seq = Future.sequence((0 until 500).map(nr => incrementValue))
       Await.result(seq, 20.seconds)
 
       assert(cache.awaitGet[Int]("some-key") === Some(500))

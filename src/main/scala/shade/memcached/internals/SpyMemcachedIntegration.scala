@@ -5,16 +5,14 @@ import net.spy.memcached.compat.SpyObject
 import net.spy.memcached.ops._
 import net.spy.memcached._
 import collection.JavaConverters._
-import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Promise, Future}
-import scala.util.{Try, Failure, Success}
 import akka.actor.Scheduler
-import scala.util.control.NonFatal
 import net.spy.memcached.auth.AuthThreadMonitor
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.io.IOException
 import shade.UnhandledStatusException
 import scala.concurrent.atomic.Atomic
+import akka.util.{NonFatal, Duration, FiniteDuration}
+import akka.dispatch.{Promise, Future, ExecutionContext}
 
 
 /**
@@ -179,11 +177,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         if (statusTranslation.isDefinedAt(opStatus))
           statusTranslation(opStatus) match {
             case CASNotFoundStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, None)))
+              result.tryComplete(Right(SuccessfulResult(key, None)))
             case CASSuccessStatus =>
             // nothing
             case failure =>
-              result.tryComplete(Success(FailedResult(key, failure)))
+              result.tryComplete(Right(FailedResult(key, failure)))
           }
 
         else
@@ -193,7 +191,7 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
 
       def gotData(k: String, flags: Int, data: Array[Byte]) {
         assert(key == k, "Wrong key returned")
-        result.tryComplete(Success(SuccessfulResult(key, Option(data))))
+        result.tryComplete(Right(SuccessfulResult(key, Option(data))))
       }
 
       def complete() {
@@ -216,7 +214,7 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
             case CASSuccessStatus =>
             // nothing
             case failure =>
-              result.tryComplete(Success(FailedResult(key, failure)))
+              result.tryComplete(Right(FailedResult(key, failure)))
           }
 
         else
@@ -225,7 +223,7 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
       }
 
       def gotData(key: String, cas: Long) {
-        result.tryComplete(Success(SuccessfulResult(key, cas)))
+        result.tryComplete(Right(SuccessfulResult(key, cas)))
       }
 
       def complete() {
@@ -246,11 +244,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         if (statusTranslation.isDefinedAt(opStatus))
           statusTranslation(opStatus) match {
             case CASExistsStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, None)))
+              result.tryComplete(Right(SuccessfulResult(key, None)))
             case CASSuccessStatus =>
               // nothing
             case failure =>
-              result.tryComplete(Success(FailedResult(key, failure)))
+              result.tryComplete(Right(FailedResult(key, failure)))
           }
         else
           throw new UnhandledStatusException(
@@ -258,7 +256,7 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
       }
 
       def gotData(key: String, cas: Long) {
-        result.tryComplete(Success(SuccessfulResult(key, Some(cas))))
+        result.tryComplete(Right(SuccessfulResult(key, Some(cas))))
       }
 
       def complete() {
@@ -279,11 +277,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         if (statusTranslation.isDefinedAt(opStatus))
           statusTranslation(opStatus) match {
             case CASSuccessStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, true)))
+              result.tryComplete(Right(SuccessfulResult(key, true)))
             case CASNotFoundStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, false)))
+              result.tryComplete(Right(SuccessfulResult(key, false)))
             case failure =>
-              result.tryComplete(Success(FailedResult(key, failure)))
+              result.tryComplete(Right(FailedResult(key, failure)))
           }
 
         else
@@ -309,11 +307,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         if (statusTranslation.isDefinedAt(opStatus))
           statusTranslation(opStatus) match {
             case CASNotFoundStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, None)))
+              result.tryComplete(Right(SuccessfulResult(key, None)))
             case CASSuccessStatus =>
             // nothing
             case failure =>
-              result.tryComplete(Success(FailedResult(key, failure)))
+              result.tryComplete(Right(FailedResult(key, failure)))
           }
         else
           throw new UnhandledStatusException(
@@ -325,9 +323,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         assert(cas > 0, "CAS was less than zero:  " + cas)
         assert(!promise.isCompleted, "promise is already complete")
 
-        result.tryComplete(Try {
-          SuccessfulResult(key, Option(data).map(d => (d, cas)))
-        })
+        try
+          result.tryComplete(Right(SuccessfulResult(key, Option(data).map(d => (d, cas)))))
+        catch {
+          case NonFatal(ex) => result.tryComplete(Left(ex))
+        }
       }
 
       def complete() {
@@ -348,13 +348,13 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         if (statusTranslation.isDefinedAt(opStatus))
           statusTranslation(opStatus) match {
             case CASSuccessStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, true)))
+              result.tryComplete(Right(SuccessfulResult(key, true)))
             case CASExistsStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, false)))
+              result.tryComplete(Right(SuccessfulResult(key, false)))
             case CASNotFoundStatus =>
-              result.tryComplete(Success(SuccessfulResult(key, false)))
+              result.tryComplete(Right(SuccessfulResult(key, false)))
             case failure =>
-              result.tryComplete(Success(FailedResult(key, failure)))
+              result.tryComplete(Right(FailedResult(key, failure)))
           }
 
         else
@@ -379,11 +379,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
     val cancellable = scheduler.scheduleOnce(atMost) {
       promise.tryComplete {
         if (op.hasErrored)
-          Failure(op.getException)
+          Left(op.getException)
         else if (op.isCancelled)
-          Success(FailedResult(key, CancelledStatus))
+          Right(FailedResult(key, CancelledStatus))
         else
-          Success(FailedResult(key, TimedOutStatus))
+          Right(FailedResult(key, TimedOutStatus))
       }
     }
 
@@ -399,11 +399,11 @@ class SpyMemcachedIntegration(cf: ConnectionFactory, addrs: Seq[InetSocketAddres
         }
 
         msg match {
-          case Success(FailedResult(_, TimedOutStatus)) =>
+          case Right(FailedResult(_, TimedOutStatus)) =>
             MemcachedConnection.opTimedOut(op)
             op.timeOut()
             if (!op.isCancelled) try op.cancel() catch { case NonFatal(_) => }
-          case Success(FailedResult(_, CancelledStatus | IllegalCompleteStatus)) =>
+          case Right(FailedResult(_, CancelledStatus | IllegalCompleteStatus)) =>
             if (!op.isCancelled) try op.cancel() catch { case NonFatal(_) => }
           case _ =>
             MemcachedConnection.opSucceeded(op)

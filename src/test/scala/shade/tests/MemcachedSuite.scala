@@ -3,14 +3,14 @@ package shade.tests
 import org.scalatest.FunSuite
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import scala.concurrent.ExecutionContext.Implicits.global
 import shade.testModels.Impression
 import java.io.{ObjectOutputStream, ByteArrayOutputStream}
 import shade.memcached.defaultCodecs._
 import shade.memcached.FailureMode
-import scala.concurrent.duration._
-import scala.concurrent.Await
 import shade.TransformOverflowException
+import akka.util.duration._
+import akka.dispatch.{Future, Await}
+import akka.util.Duration
 
 
 @RunWith(classOf[JUnitRunner])
@@ -176,7 +176,7 @@ class MemcachedSuite extends FunSuite with MemcachedTestHelpers {
           case Some(nr) => nr + 1
         }
 
-      val seq = concurrent.Future.sequence((0 until 500).map(nr => incrementValue))
+      val seq = Future.sequence((0 until 500).map(nr => incrementValue))
       Await.result(seq, 20.seconds)
 
       assert(cache.awaitGet[Int]("some-key") === Some(500))
@@ -194,7 +194,7 @@ class MemcachedSuite extends FunSuite with MemcachedTestHelpers {
           case Some(nr) => nr + 1
         }
 
-      val seq = concurrent.Future.sequence((0 until 500).map(nr => incrementValue))
+      val seq = Future.sequence((0 until 500).map(nr => incrementValue))
       Await.result(seq, 20.seconds)
 
       assert(cache.awaitGet[Int]("some-key") === Some(500))
@@ -215,10 +215,10 @@ class MemcachedSuite extends FunSuite with MemcachedTestHelpers {
       val initial = Await.result(incrementValue.flatMap { case _ => incrementValue }, 3.seconds)
       assert(initial === 2)
 
-      val seq = concurrent.Future.sequence((0 until 500).map(nr => incrementValue))
+      val seq = Future.sequence((0 until 500).map(nr => incrementValue))
       try {
         Await.result(seq, 20.seconds)
-        assert(condition = false, "should throw exception")
+        assert(false, "should throw exception")
       }
       catch {
         case ex: TransformOverflowException =>
@@ -241,11 +241,11 @@ class MemcachedSuite extends FunSuite with MemcachedTestHelpers {
       val initial = Await.result(incrementValue.flatMap { case _ => incrementValue }, 3.seconds)
       assert(initial === Some(1))
 
-      val seq = concurrent.Future.sequence((0 until 500).map(nr => incrementValue))
+      val seq = Future.sequence((0 until 500).map(nr => incrementValue))
 
       try {
         Await.result(seq, 20.seconds)
-        assert(condition = false, "should throw exception")
+        assert(false, "should throw exception")
       }
       catch {
         case ex: TransformOverflowException =>
