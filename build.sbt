@@ -2,11 +2,11 @@ name := "shade"
 
 organization := "com.bionicspirit"
 
-version := "1.7.0-SNAPSHOT"
+version := "1.7.0-SNAPSHOT-SG"
 
 scalaVersion := "2.10.4"
 
-crossScalaVersions := Seq("2.10.4", "2.11.0")
+//crossScalaVersions := Seq("2.10.4", "2.11.0")
 
 compileOrder in ThisBuild := CompileOrder.JavaThenScala
 
@@ -34,13 +34,7 @@ publishMavenStyle := true
 
 publishArtifact in Test := false
 
-publishTo := {
-  val nexus = "https://oss.sonatype.org/"
-  if (isSnapshot.value)
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-}
+publishTo := Some(Resolver.file("mvn-repo", new File("/Users/rusho/sgrouples/workspace/other/mvn-repo/")))
 
 publishArtifact in Test := false
 
